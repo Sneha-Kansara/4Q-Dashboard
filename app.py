@@ -1,138 +1,134 @@
 import streamlit as st
 import pandas as pd
-import random
+import json
 
-# --- PAGE CONFIG ---
-st.set_page_config(page_title="4Q Mastery Dashboard", layout="wide", initial_sidebar_state="expanded")
+# --- SETTINGS & BEAUTIFICATION ---
+st.set_page_config(page_title="4Q Mastery", layout="wide")
 
-# --- CUSTOM CSS FOR BETTER UI ---
+# Custom CSS for a "Premium App" Aesthetic
 st.markdown("""
     <style>
-    .main { background-color: #f8f9fa; }
-    div[data-testid="stMetric"] {
-        background-color: white;
-        padding: 15px;
-        border-radius: 10px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+    html, body, [class*="css"] { font-family: 'Inter', sans-serif; background-color: #F0F2F5; }
+    
+    .main-card {
+        background: rgba(255, 255, 255, 0.8);
+        backdrop-filter: blur(10px);
+        border-radius: 20px;
+        padding: 25px;
+        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        margin-bottom: 20px;
     }
-    .stTextArea textarea { border-radius: 10px; border: 1px solid #4F46E5; }
-    .status-box { padding: 10px; border-radius: 5px; font-weight: bold; text-align: center; }
+    
+    .q-tag {
+        display: inline-block;
+        padding: 5px 15px;
+        border-radius: 15px;
+        color: white;
+        font-weight: bold;
+        font-size: 12px;
+        margin-bottom: 10px;
+    }
+    
+    .stButton>button {
+        border-radius: 12px;
+        border: none;
+        transition: all 0.3s ease;
+        height: 50px;
+        width: 100%;
+    }
+    
+    .stButton>button:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
     </style>
     """, unsafe_allow_html=True)
 
-# --- SESSION STATE INITIALIZATION ---
-# This acts as our "In-Web Memory"
-if 'all_weeks_data' not in st.session_state:
-    def create_empty_week():
-        days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-        return {day: {"PQ": False, "IQ": False, "EQ": False, "SQ": False} for day in days}
-    
-    # Start with Week 1
-    st.session_state.all_weeks_data = {"Week 1": create_empty_week()}
+# --- DATA STATE ---
+if 'data' not in st.session_state:
+    days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    st.session_state.data = {day: {"PQ": False, "IQ": False, "EQ": False, "SQ": False} for day in days}
+    st.session_state.reflection = ""
 
-# --- SIDEBAR NAVIGATION ---
-with st.sidebar:
-    st.title("🎯 4Q Mastery")
-    st.markdown("---")
-    
-    # Week Selection
-    selected_week = st.selectbox("📅 Select Week", list(st.session_state.all_weeks_data.keys()))
-    
-    # Add Week Button
-    if st.button("➕ Add New Week"):
-        new_week_num = len(st.session_state.all_weeks_data) + 1
-        st.session_state.all_weeks_data[f"Week {new_week_num}"] = create_empty_week()
-        st.rerun()
-    
-    st.markdown("---")
-    st.info("💡 Data is saved in this browser session. Do not refresh to keep progress for 2 weeks!")
+# --- HEADER & QUOTE ---
+st.title("✨ 4Q Aesthetic Growth")
+st.markdown("> *“The quality of your life is defined by the balance of your 4 Quotients.”*")
 
-# --- TOP SECTION: QUOTE & KPIs ---
-st.title(f"🚀 {selected_week} Performance Dashboard")
+# --- INTERACTIVE SMART GRID ---
+st.subheader("🗓️ Weekly Rituals")
+cols = st.columns(7)
+days_list = list(st.session_state.data.keys())
 
-quotes = [
-    "“Discipline is the bridge between goals and accomplishment.”",
-    "“Your IQ gets you hired, but your EQ gets you promoted.”",
-    "“Self-responsibility is the highest form of human maturity.”",
-    "“PQ is the fuel, IQ is the engine, EQ is the driver, SQ is the destination.”"
-]
-st.warning(f"💡 **Motivation:** {random.choice(quotes)}")
+# Define Colors for each Q
+q_styles = {
+    "PQ": "#10B981", # Green
+    "IQ": "#3B82F6", # Blue
+    "EQ": "#EC4899", # Pink
+    "SQ": "#8B5CF6"  # Purple
+}
 
-# --- THE INTERACTIVE TRACKER ---
-st.subheader("Interactive Habit Log")
-current_data = st.session_state.all_weeks_data[selected_week]
+for i, day in enumerate(days_list):
+    with cols[i]:
+        st.markdown(f"### {day}")
+        for q, color in q_styles.items():
+            is_active = st.session_state.data[day][q]
+            # Use a unique button for each habit
+            if st.button(f"{q}", key=f"{day}_{q}", 
+                         type="primary" if is_active else "secondary", 
+                         help=f"Mark {q} for {day}"):
+                st.session_state.data[day][q] = not is_active
+                st.rerun()
 
-# Convert dict to DataFrame for display
-df = pd.DataFrame(current_data).T.reset_index().rename(columns={'index': 'Day'})
-
-# The "Smart" Data Editor
-edited_df = st.data_editor(
-    df,
-    column_config={
-        "Day": st.column_config.TextColumn("Day", disabled=True),
-        "PQ": st.column_config.CheckboxColumn("Physical (PQ)"),
-        "IQ": st.column_config.CheckboxColumn("Intelligence (IQ)"),
-        "EQ": st.column_config.CheckboxColumn("Emotional (EQ)"),
-        "SQ": st.column_config.CheckboxColumn("Spiritual (SQ)"),
-    },
-    hide_index=True,
-    use_container_width=True,
-    key="editor"
-)
-
-# Sync edits back to session state immediately
-for _, row in edited_df.iterrows():
-    day = row['Day']
-    st.session_state.all_weeks_data[selected_week][day] = {
-        "PQ": row['PQ'], "IQ": row['IQ'], "EQ": row['EQ'], "SQ": row['SQ']
-    }
-
-# --- CALCULATIONS ---
-numeric_df = edited_df.drop(columns=['Day']).astype(int)
-daily_scores = numeric_df.sum(axis=1)
-total_score = daily_scores.sum()
+# --- CALCULATIONS (THE MATH) ---
+total_score = sum(sum(d.values()) for d in st.session_state.data.values())
 consistency = (total_score / 28) * 100
 avg_day = total_score / 7
+q_scores = {q: sum(st.session_state.data[day][q] for day in days_list) for q in q_styles.keys()}
 
-# Q-Wise breakdown
-q_totals = numeric_df.sum()
-
-# --- ANALYTICS UI ---
+# --- PERFORMANCE SUMMARY (AESTHETIC CARDS) ---
 st.divider()
-c1, c2, c3, c4 = st.columns(4)
+st.subheader("📊 Performance Analytics")
+m1, m2, m3 = st.columns(3)
 
-c1.metric("Weekly Points", f"{total_score}/28", delta=f"{total_score-14 if total_score > 14 else 0} above pass")
-c2.metric("Consistency", f"{consistency:.1f}%")
-c3.metric("Daily Avg", f"{avg_day:.1f}")
-c4.metric("Top Q", q_totals.idxmax() if total_score > 0 else "N/A")
+with m1:
+    st.markdown(f'<div class="main-card"><p>Total Score</p><h2>{total_score} / 28</h2></div>', unsafe_allow_html=True)
+with m2:
+    st.markdown(f'<div class="main-card"><p>Consistency</p><h2>{consistency:.1f}%</h2></div>', unsafe_allow_html=True)
+with m3:
+    st.markdown(f'<div class="main-card"><p>Daily Avg</p><h2>{avg_per_day:.1f}</h2></div>', unsafe_allow_html=True)
 
-# --- VISUAL CHART ---
-st.subheader("📈 Performance Trend (Daily Score 0-4)")
-st.area_chart(daily_scores, color="#4F46E5")
+# Q-Wise Performance
+st.markdown("#### Quotient Mastery")
+q_cols = st.columns(4)
+for i, (q, color) in enumerate(q_styles.items()):
+    score = q_scores[q]
+    with q_cols[i]:
+        st.markdown(f"""
+            <div style="background:{color}; padding:15px; border-radius:15px; color:white; text-align:center;">
+                <small>{q} Balance</small>
+                <h3 style="margin:0;">{score}/7</h3>
+            </div>
+        """, unsafe_allow_html=True)
 
-# --- REFLECTION AREA ---
+# --- PROGRESS CHART ---
+st.subheader("📈 Energy Trend")
+chart_data = pd.DataFrame({
+    "Day": days_list,
+    "Score": [sum(st.session_state.data[day].values()) for day in days_list]
+})
+st.area_chart(chart_data.set_index("Day"), color="#6366F1")
+
+# --- REFLECTION & SAVE ---
 st.divider()
 st.subheader("🧠 Weekly Reflection Summary")
-st.markdown("*Min. 300 words required for the assignment*")
+st.session_state.reflection = st.text_area("Write minimum 300 words...", value=st.session_state.reflection, height=250)
 
-refl_key = f"refl_{selected_week}"
-if refl_key not in st.session_state:
-    st.session_state[refl_key] = ""
+# Export Functionality
+json_str = json.dumps({"data": st.session_state.data, "refl": st.session_state.reflection})
+st.download_button("💾 Save Progress (Download File)", json_str, file_name="my_4q_data.json")
 
-reflection_text = st.text_area(
-    "Analyze your performance, distractions, and improvements:",
-    value=st.session_state[refl_key],
-    height=300,
-    placeholder="Start typing your reflection here...",
-    key="refl_input"
-)
-st.session_state[refl_key] = reflection_text
-
-words = len(reflection_text.split())
-progress_color = "red" if words < 300 else "green"
-st.markdown(f"**Word Count:** <span style='color:{progress_color}'>{words} / 300</span>", unsafe_allow_html=True)
-
-if words >= 300:
-    st.success("✅ Reflection Length Requirement Met!")
+# Word count logic
+words = len(st.session_state.reflection.split())
+if words < 300:
+    st.warning(f"Word Count: {words}/300. You need {300-words} more to meet assignment criteria.")
 else:
-    st.info(f"📝 Write {300 - words} more words to complete the assignment.")
+    st.success("✅ Requirement Met!")
