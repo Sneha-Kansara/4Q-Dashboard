@@ -1,134 +1,151 @@
 import streamlit as st
 import pandas as pd
 import json
+import random
 
-# --- SETTINGS & BEAUTIFICATION ---
-st.set_page_config(page_title="4Q Mastery", layout="wide")
+# --- 1. PAGE SETUP & PASTEL CSS ---
+st.set_page_config(page_title="✨ 4Q Pastel Mastery", layout="wide")
 
-# Custom CSS for a "Premium App" Aesthetic
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
-    html, body, [class*="css"] { font-family: 'Inter', sans-serif; background-color: #F0F2F5; }
+    /* Main Background - Soft Pastel Gradient */
+    .stApp {
+        background: linear-gradient(135deg, #E0C3FC 0%, #8EC5FC 100%);
+    }
     
-    .main-card {
-        background: rgba(255, 255, 255, 0.8);
-        backdrop-filter: blur(10px);
-        border-radius: 20px;
+    /* Glassmorphism Cards */
+    .glass-card {
+        background: rgba(255, 255, 255, 0.45);
+        backdrop-filter: blur(15px);
+        border-radius: 25px;
         padding: 25px;
-        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
-        border: 1px solid rgba(255, 255, 255, 0.18);
+        border: 1px solid rgba(255, 255, 255, 0.5);
+        box-shadow: 0 8px 32px 0 rgba(135, 150, 235, 0.2);
         margin-bottom: 20px;
     }
+
+    /* Metric Styling */
+    .metric-text { color: #5D5D9D; font-weight: bold; font-size: 1.2rem; }
+    .metric-val { color: #4A4A8A; font-size: 2.2rem; font-weight: 800; }
     
-    .q-tag {
-        display: inline-block;
-        padding: 5px 15px;
-        border-radius: 15px;
-        color: white;
-        font-weight: bold;
-        font-size: 12px;
-        margin-bottom: 10px;
-    }
-    
+    /* Button Customization */
     .stButton>button {
-        border-radius: 12px;
+        border-radius: 15px;
         border: none;
-        transition: all 0.3s ease;
-        height: 50px;
+        height: 45px;
         width: 100%;
+        font-weight: bold;
+        transition: 0.3s;
     }
     
-    .stButton>button:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+    /* Headers */
+    h1, h2, h3 { color: #4A4A8A !important; font-family: 'Quicksand', sans-serif; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- DATA STATE ---
-if 'data' not in st.session_state:
-    days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-    st.session_state.data = {day: {"PQ": False, "IQ": False, "EQ": False, "SQ": False} for day in days}
-    st.session_state.reflection = ""
+# --- 2. SMART DATA STATE ---
+if 'all_data' not in st.session_state:
+    def create_week():
+        days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+        return {day: {"PQ": False, "IQ": False, "EQ": False, "SQ": False} for day in days}
+    st.session_state.all_data = {"Week 1": create_week()}
+    st.session_state.reflections = {"Week 1": ""}
+    st.session_state.goals = {"Week 1": ""}
 
-# --- HEADER & QUOTE ---
-st.title("✨ 4Q Aesthetic Growth")
-st.markdown("> *“The quality of your life is defined by the balance of your 4 Quotients.”*")
+# --- 3. SIDEBAR (NAVIGATION & DATA) ---
+with st.sidebar:
+    st.markdown("### 🌸 Menu")
+    if st.button("✨ Add New Week"):
+        nw = f"Week {len(st.session_state.all_data) + 1}"
+        st.session_state.all_data[nw] = create_week()
+        st.session_state.reflections[nw] = ""
+        st.session_state.goals[nw] = ""
+        st.rerun()
+    
+    selected_week = st.selectbox("📅 View Progress", list(st.session_state.all_data.keys()))
+    
+    st.divider()
+    st.markdown("### 📂 Storage")
+    save_pkg = {"all_data": st.session_state.all_data, "reflections": st.session_state.reflections, "goals": st.session_state.goals}
+    st.download_button("☁️ Export Data", json.dumps(save_pkg), file_name="4q_pastel_backup.json")
+    
+    up_file = st.file_uploader("🌸 Import Data", type="json")
+    if up_file:
+        loaded = json.load(up_file)
+        st.session_state.all_data, st.session_state.reflections, st.session_state.goals = loaded["all_data"], loaded["reflections"], loaded["goals"]
+        st.rerun()
 
-# --- INTERACTIVE SMART GRID ---
-st.subheader("🗓️ Weekly Rituals")
+# --- 4. THE UI LAYOUT ---
+st.title(f"🌈 {selected_week}: 4Q Mastery")
+st.markdown("*“Self-responsibility is the path to freedom.”*")
+
+# Color Palette for Qs
+q_colors = {"PQ": "#A7F3D0", "IQ": "#BFDBFE", "EQ": "#FBCFE8", "SQ": "#DDD6FE"} # Pastel Green, Blue, Pink, Purple
+
+# --- DAILY INTERACTIVE LOG ---
+st.markdown("### ✍️ Daily Log")
 cols = st.columns(7)
-days_list = list(st.session_state.data.keys())
+curr_week = st.session_state.all_data[selected_week]
 
-# Define Colors for each Q
-q_styles = {
-    "PQ": "#10B981", # Green
-    "IQ": "#3B82F6", # Blue
-    "EQ": "#EC4899", # Pink
-    "SQ": "#8B5CF6"  # Purple
-}
-
-for i, day in enumerate(days_list):
+for i, day in enumerate(curr_week.keys()):
     with cols[i]:
-        st.markdown(f"### {day}")
-        for q, color in q_styles.items():
-            is_active = st.session_state.data[day][q]
-            # Use a unique button for each habit
-            if st.button(f"{q}", key=f"{day}_{q}", 
-                         type="primary" if is_active else "secondary", 
-                         help=f"Mark {q} for {day}"):
-                st.session_state.data[day][q] = not is_active
+        st.markdown(f"**{day}**")
+        for q, color in q_colors.items():
+            active = curr_week[day][q]
+            if st.button(f"{q}", key=f"{selected_week}_{day}_{q}", 
+                         type="primary" if active else "secondary"):
+                st.session_state.all_data[selected_week][day][q] = not active
                 st.rerun()
 
-# --- CALCULATIONS (THE MATH) ---
-total_score = sum(sum(d.values()) for d in st.session_state.data.values())
-consistency = (total_score / 28) * 100
-avg_day = total_score / 7
-q_scores = {q: sum(st.session_state.data[day][q] for day in days_list) for q in q_styles.keys()}
-
-# --- PERFORMANCE SUMMARY (AESTHETIC CARDS) ---
+# --- PERFORMANCE SUMMARY ---
 st.divider()
-st.subheader("📊 Performance Analytics")
+daily_sums = [sum(curr_week[d].values()) for d in curr_week.keys()]
+total = sum(daily_sums)
+const = (total / 28) * 100
+avg = total / 7
+
+st.markdown("### 📊 Performance Summary")
 m1, m2, m3 = st.columns(3)
-
 with m1:
-    st.markdown(f'<div class="main-card"><p>Total Score</p><h2>{total_score} / 28</h2></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="glass-card"><p class="metric-text">Total Score</p><p class="metric-val">{total}/28</p></div>', unsafe_allow_html=True)
 with m2:
-    st.markdown(f'<div class="main-card"><p>Consistency</p><h2>{consistency:.1f}%</h2></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="glass-card"><p class="metric-text">Consistency</p><p class="metric-val">{const:.1f}%</p></div>', unsafe_allow_html=True)
 with m3:
-    st.markdown(f'<div class="main-card"><p>Daily Avg</p><h2>{avg_per_day:.1f}</h2></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="glass-card"><p class="metric-text">Daily Average</p><p class="metric-val">{avg:.1f}</p></div>', unsafe_allow_html=True)
 
-# Q-Wise Performance
-st.markdown("#### Quotient Mastery")
+# Q-Wise Performance Tiles
+st.markdown("#### 🧬 Quotient Mastery (Out of 7)")
 q_cols = st.columns(4)
-for i, (q, color) in enumerate(q_styles.items()):
-    score = q_scores[q]
+for i, (q, color) in enumerate(q_colors.items()):
+    q_total = sum(curr_week[day][q] for day in curr_week.keys())
     with q_cols[i]:
         st.markdown(f"""
-            <div style="background:{color}; padding:15px; border-radius:15px; color:white; text-align:center;">
-                <small>{q} Balance</small>
-                <h3 style="margin:0;">{score}/7</h3>
+            <div style="background:{color}; padding:20px; border-radius:20px; color:#4A4A8A; text-align:center; border: 2px solid white;">
+                <b>{q}</b><br><span style="font-size:28px; font-weight:bold;">{q_total}/7</span>
             </div>
         """, unsafe_allow_html=True)
 
-# --- PROGRESS CHART ---
-st.subheader("📈 Energy Trend")
-chart_data = pd.DataFrame({
-    "Day": days_list,
-    "Score": [sum(st.session_state.data[day].values()) for day in days_list]
-})
-st.area_chart(chart_data.set_index("Day"), color="#6366F1")
+# Progress Chart
+st.subheader("📈 Energy Flow")
+st.area_chart(pd.DataFrame({"Score": daily_sums}, index=curr_week.keys()), color="#8B5CF6")
 
-# --- REFLECTION & SAVE ---
+# --- NEW: GOAL SETTING & REFLECTION ---
 st.divider()
-st.subheader("🧠 Weekly Reflection Summary")
-st.session_state.reflection = st.text_area("Write minimum 300 words...", value=st.session_state.reflection, height=250)
+c_goal, c_refl = st.columns([1, 2])
 
-# Export Functionality
-json_str = json.dumps({"data": st.session_state.data, "refl": st.session_state.reflection})
-st.download_button("💾 Save Progress (Download File)", json_str, file_name="my_4q_data.json")
+with c_goal:
+    st.subheader("🎯 Weekly Goals")
+    goal_text = st.text_area("What are you improving?", 
+                             value=st.session_state.goals[selected_week], 
+                             height=320, key=f"goal_{selected_week}")
+    st.session_state.goals[selected_week] = goal_text
 
-# Word count logic
-words = len(st.session_state.reflection.split())
-if words < 300:
-    st.warning(f"Word Count: {words}/300. You need {300-words} more to meet assignment criteria.")
-else:
-    st.success("✅ Requirement Met!")
+with c_refl:
+    st.subheader("🧠 Reflection Summary")
+    refl_text = st.text_area("Min. 300 words (Strongest, Weakest, Distractions...)", 
+                             value=st.session_state.reflections[selected_week], 
+                             height=320, key=f"refl_{selected_week}")
+    st.session_state.reflections[selected_week] = refl_text
+    wc = len(refl_text.split())
+    if wc < 300: st.warning(f"📝 {wc}/300 words")
+    else: st.success("✅ Length Goal Met!")
