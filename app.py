@@ -1,9 +1,14 @@
 import streamlit as st
 import pandas as pd
 import json
-import random
 
-# --- 1. PAGE SETUP & PASTEL CSS ---
+# --- 1. DEFINE FUNCTIONS AT TOP (Fixes NameError) ---
+def create_week():
+    """Creates a blank structure for a new week."""
+    days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    return {day: {"PQ": False, "IQ": False, "EQ": False, "SQ": False} for day in days}
+
+# --- 2. PAGE SETUP & PASTEL CSS ---
 st.set_page_config(page_title="✨ 4Q Pastel Mastery", layout="wide")
 
 st.markdown("""
@@ -25,8 +30,8 @@ st.markdown("""
     }
 
     /* Metric Styling */
-    .metric-text { color: #5D5D9D; font-weight: bold; font-size: 1.2rem; }
-    .metric-val { color: #4A4A8A; font-size: 2.2rem; font-weight: 800; }
+    .metric-text { color: #5D5D9D; font-weight: bold; font-size: 1.1rem; margin-bottom: 0px; }
+    .metric-val { color: #4A4A8A; font-size: 2.2rem; font-weight: 800; margin-top: -10px; }
     
     /* Button Customization */
     .stButton>button {
@@ -43,44 +48,52 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. SMART DATA STATE ---
+# --- 3. SMART DATA STATE ---
 if 'all_data' not in st.session_state:
-    def create_week():
-        days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-        return {day: {"PQ": False, "IQ": False, "EQ": False, "SQ": False} for day in days}
     st.session_state.all_data = {"Week 1": create_week()}
     st.session_state.reflections = {"Week 1": ""}
     st.session_state.goals = {"Week 1": ""}
 
-# --- 3. SIDEBAR (NAVIGATION & DATA) ---
+# --- 4. SIDEBAR (NAVIGATION & DATA) ---
 with st.sidebar:
     st.markdown("### 🌸 Menu")
+    
+    # Adding a New Week
     if st.button("✨ Add New Week"):
-        nw = f"Week {len(st.session_state.all_data) + 1}"
-        st.session_state.all_data[nw] = create_week()
-        st.session_state.reflections[nw] = ""
-        st.session_state.goals[nw] = ""
+        nw_name = f"Week {len(st.session_state.all_data) + 1}"
+        st.session_state.all_data[nw_name] = create_week()
+        st.session_state.reflections[nw_name] = ""
+        st.session_state.goals[nw_name] = ""
         st.rerun()
     
     selected_week = st.selectbox("📅 View Progress", list(st.session_state.all_data.keys()))
     
     st.divider()
-    st.markdown("### 📂 Storage")
-    save_pkg = {"all_data": st.session_state.all_data, "reflections": st.session_state.reflections, "goals": st.session_state.goals}
+    st.markdown("### 📂 Data Storage")
+    
+    # Export
+    save_pkg = {
+        "all_data": st.session_state.all_data, 
+        "reflections": st.session_state.reflections, 
+        "goals": st.session_state.goals
+    }
     st.download_button("☁️ Export Data", json.dumps(save_pkg), file_name="4q_pastel_backup.json")
     
+    # Import
     up_file = st.file_uploader("🌸 Import Data", type="json")
     if up_file:
         loaded = json.load(up_file)
-        st.session_state.all_data, st.session_state.reflections, st.session_state.goals = loaded["all_data"], loaded["reflections"], loaded["goals"]
+        st.session_state.all_data = loaded["all_data"]
+        st.session_state.reflections = loaded["reflections"]
+        st.session_state.goals = loaded["goals"]
         st.rerun()
 
-# --- 4. THE UI LAYOUT ---
+# --- 5. THE UI LAYOUT ---
 st.title(f"🌈 {selected_week}: 4Q Mastery")
 st.markdown("*“Self-responsibility is the path to freedom.”*")
 
 # Color Palette for Qs
-q_colors = {"PQ": "#A7F3D0", "IQ": "#BFDBFE", "EQ": "#FBCFE8", "SQ": "#DDD6FE"} # Pastel Green, Blue, Pink, Purple
+q_colors = {"PQ": "#A7F3D0", "IQ": "#BFDBFE", "EQ": "#FBCFE8", "SQ": "#DDD6FE"} 
 
 # --- DAILY INTERACTIVE LOG ---
 st.markdown("### ✍️ Daily Log")
@@ -92,18 +105,20 @@ for i, day in enumerate(curr_week.keys()):
         st.markdown(f"**{day}**")
         for q, color in q_colors.items():
             active = curr_week[day][q]
+            # Primary type makes the button colorful when 'True'
             if st.button(f"{q}", key=f"{selected_week}_{day}_{q}", 
                          type="primary" if active else "secondary"):
                 st.session_state.all_data[selected_week][day][q] = not active
                 st.rerun()
 
-# --- PERFORMANCE SUMMARY ---
-st.divider()
+# --- CALCULATIONS ---
 daily_sums = [sum(curr_week[d].values()) for d in curr_week.keys()]
 total = sum(daily_sums)
 const = (total / 28) * 100
 avg = total / 7
 
+# --- PERFORMANCE SUMMARY ---
+st.divider()
 st.markdown("### 📊 Performance Summary")
 m1, m2, m3 = st.columns(3)
 with m1:
@@ -120,16 +135,16 @@ for i, (q, color) in enumerate(q_colors.items()):
     q_total = sum(curr_week[day][q] for day in curr_week.keys())
     with q_cols[i]:
         st.markdown(f"""
-            <div style="background:{color}; padding:20px; border-radius:20px; color:#4A4A8A; text-align:center; border: 2px solid white;">
+            <div style="background:{color}; padding:20px; border-radius:20px; color:#4A4A8A; text-align:center; border: 2px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
                 <b>{q}</b><br><span style="font-size:28px; font-weight:bold;">{q_total}/7</span>
             </div>
         """, unsafe_allow_html=True)
 
 # Progress Chart
-st.subheader("📈 Energy Flow")
+st.subheader("📈 Energy Flow (X: Day, Y: Score)")
 st.area_chart(pd.DataFrame({"Score": daily_sums}, index=curr_week.keys()), color="#8B5CF6")
 
-# --- NEW: GOAL SETTING & REFLECTION ---
+# --- GOAL SETTING & REFLECTION ---
 st.divider()
 c_goal, c_refl = st.columns([1, 2])
 
