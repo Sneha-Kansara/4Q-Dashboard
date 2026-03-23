@@ -152,4 +152,22 @@ st.markdown('<div class="section-card"><h3>🧠 4. Weekly Reflection Summary</h3
 st.session_state.goals[selected_week] = st.text_input("🎯 Goal for Next Week:", value=st.session_state.goals[selected_week], placeholder="e.g., Achieve 7/7 in EQ")
 
 # Smarter Auto-Draft
-if st.button("🪄 Auto-Draft My 300-Word Start
+if st.button("🪄 Auto-Draft My 300-Word Start"):
+    strong = max(q_totals, key=q_totals.get)
+    weak = min(q_totals, key=q_totals.get)
+    st.session_state.reflections[selected_week] = (
+        f"In {selected_week}, my strongest area was {strong} ({q_totals[strong]}/7) while my weakest was {weak} ({q_totals[weak]}/7). "
+        "The primary distraction this week was [Add specific distraction here]. "
+        f"Next week, my goal is to {st.session_state.goals[selected_week] if st.session_state.goals[selected_week] else 'improve my lowest scores'}. "
+        "I am taking self-responsibility for this {(total_pts/28)*100:.0f}% consistency score..."
+    )
+    st.rerun()
+
+refl_text = st.text_area("Write Summary (Min 300 Words):", value=st.session_state.reflections[selected_week], height=300)
+st.session_state.reflections[selected_week] = refl_text
+
+wc = len(refl_text.split())
+st.markdown(f"**Word Count:** {wc} / 300")
+if wc >= 300: st.success("✅ Requirement Met!")
+else: st.warning(f"📝 You need {300-wc} more words.")
+st.markdown('</div>', unsafe_allow_html=True)
